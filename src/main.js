@@ -572,11 +572,16 @@ async function main() {
 
         const crawler = new CheerioCrawler({
             proxyConfiguration: proxyConf,
-            maxRequestRetries: 3,
+            maxRequestRetries: 2,  // Reduced retries for speed
             useSessionPool: true,
             persistCookiesPerSession: true,
-            maxConcurrency: 15,  // Increased for speed
-            requestHandlerTimeoutSecs: 45,  // Reduced for faster failover
+            sessionPoolOptions: {
+                maxPoolSize: 30,  // More sessions for better distribution
+            },
+            minConcurrency: 5,  // Never drop below 5 concurrent requests
+            maxConcurrency: 20,  // Increased for maximum speed
+            requestHandlerTimeoutSecs: 30,  // Faster timeout
+            navigationTimeoutSecs: 20,  // Fast page load timeout
             additionalMimeTypes: ['application/json'],
 
             // Stealth: Add random headers to each request
