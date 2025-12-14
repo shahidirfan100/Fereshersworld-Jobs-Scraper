@@ -45,9 +45,35 @@ async function main() {
         const sanitizeHtml = (html) => {
             if (!html) return '';
             const $ = cheerioLoad(html);
-            $('script, style, noscript, iframe, img, svg, video, audio, nav, footer, header, form, input, button').remove();
-            $('[onclick], [onload], [onerror]').removeAttr('onclick onload onerror');
-            return $.html().trim();
+
+            // Remove unwanted elements
+            $(
+                'script, style, noscript, iframe, img, svg, video, audio, ' +
+                'nav, footer, header, form, input, button, select, textarea, ' +
+                '.navbar, .menu, .sidebar, .header, .footer, ' +
+                '.advertisement, .ad, [class*="ad-"], [id*="ad-"], ' +
+                '.social, .share, .comment, .related, ' +
+                '[onclick], [onload], [onerror]'
+            ).remove();
+
+            // Remove event attributes
+            $('*').each((_, el) => {
+                const $el = $(el);
+                const attrs = el.attribs || {};
+                Object.keys(attrs).forEach(attr => {
+                    if (attr.startsWith('on') || attr === 'style' || attr === 'class' || attr === 'id') {
+                        $el.removeAttr(attr);
+                    }
+                });
+            });
+
+            // Get clean HTML
+            let cleaned = $.html().trim();
+
+            // Remove excessive whitespace
+            cleaned = cleaned.replace(/\s+/g, ' ').replace(/>\s+</g, '><');
+
+            return cleaned;
         };
 
         // Build Freshersworld search URL
@@ -191,83 +217,192 @@ async function main() {
         function extractFromDetailHtml($) {
             const data = {};
 
-            // Title - multiple selectors for robustness
-            data.title = $('h1.job-title, h1[class*="title"], .job-header h1, .job-details h1, h1').first().text().trim() || '';
+            // Remove unwanted elements first
+            $('header, nav, footer, .header, .footer, .navbar, .menu, .sidebar, script, style').remove();
 
-            // Company
-            data.company = $('.company-name, .employer-name, [class*="company-name"], [class*="employer"], .hiring-company, a[href*="/company/"]').first().text().trim() || '';
-
-            // Location
-            data.location = $('.job-location, .location-text, [class*="location"], .city-name').first().text().trim() || '';
-
-            // Salary
-            data.salary = $('.salary, .salary-range, [class*="salary"], .ctc, [class*="ctc"]').first().text().trim() || '';
-
-            // Experience
-            data.experience = $('.experience, .exp-required, [class*="experience"], [class*="exp-range"]').first().text().trim() || '';
-
-            // Qualification/Education
-            data.qualification = $('.qualification, .education, [class*="qualification"], [class*="education"], [class*="eligibility"]').first().text().trim() || '';
-
-            // Job Type
-            data.job_type = $('.job-type, .employment-type, [class*="job-type"], [class*="employment"]').first().text().trim() || '';
-
-            // Skills
-            const skills = [];
-            $('.skills-tag, .skill-item, [class*="skill-tag"], [class*="key-skill"], .skill').each((_, el) => {
-                const skill = $(el).text().trim();
-                if (skill && skill.length < 50) skills.push(skill);
-            });
-            data.skills = skills.join(', ');
-
-            // Posted Date
-            data.date_posted = $('.posted-date, .date-posted, [class*="posted"], [class*="post-date"], time').first().text().trim() || '';
-
-            // Description - look for main content area
-            const descSelectors = [
-                '.job-description',
-                '.description-content',
-                '[class*="job-description"]',
-                '[class*="job-desc"]',
-                '.job-content',
-                '.job-details-content',
-                '#job-description',
-                '.description',
-                'article',
+            // Title - Look for job title specifically
+            let titleSelectors = [
+                '.seo_title',
+                '.wrap-title.seo_title',
+                '.job-new-title .wrap-title',
+                'h1.job-title',
+                'h1'
             ];
-
-            let descEl = null;
-            for (const sel of descSelectors) {
-                descEl = $(sel).first();
-                if (descEl.length && descEl.text().trim().length > 100) break;
+            for (const sel of titleSelectors) {
+                const title = $(sel).first().text().trim();
+                if (title && title.length > 5 && !title.includes('Login') && !title.includes('Employer')) {
+                    data.title = title.replace(/\s+/g, ' ');
+                    break;
+                }
             }
 
-            if (descEl && descEl.length) {
-                data.description_html = sanitizeHtml(descEl.html());
+            // Company - Very specific selector
+            let company = $('.latest-jobs-title.company-name').first().text().trim();
+            if (!company || company.includes('Login') || company.includes('Employer')) {
+                company = $('h3.company-name').first().text().trim();
+            }
+            if (!company || company.includes('Login') || company.includes('Employer')) {
+                company = $('.company-name').not(':has(a)').first().text().trim();
+            }
+            // Filter out login/employer text
+            if (company && !company.includes('Login') && !company.includes('Employer') && !company.includes('Institute')) {
+                data.company = company;
             } else {
-                // Fallback - try to find any substantial content block
-                $('main, .main-content, .content, .job-detail').each((_, el) => {
-                    const html = $(el).html();
-                    if (html && html.length > 200) {
-                        data.description_html = sanitizeHtml(html);
+                data.company = '';
+            }
+
+            // Location
+            const locationText = $('.job-location a.bold_font').first().text().trim() ||
+                $('.job-location').first().text().trim() ||
+                $('a.bold_font[href*="jobs-in-"]').first().text().trim();
+            data.location = locationText;
+
+            // Experience - Look for .experience.job-details-span
+            let expText = $('.experience.job-details-span').first().text().trim();
+            if (!expText) {
+                expText = $('span.experience').first().text().trim();
+            }
+            data.experience = expText;
+
+            // Salary and Qualification - These are in .qualifications spans
+            // First .qualifications block is salary, second is qualification
+            const qualBlocks = $('.qualifications.display-block').toArray();
+
+            if (qualBlocks.length > 0) {
+                // First one is usually salary
+                const firstBlock = $(qualBlocks[0]).text().trim();
+                // Check if it looks like salary (contains numbers)
+                if (/\d/.test(firstBlock)) {
+                    data.salary = firstBlock;
+                }
+
+                // Second block is usually qualification
+                if (qualBlocks.length > 1) {
+                    const qualBlock = $(qualBlocks[1]);
+                    const quals = [];
+                    qualBlock.find('.bold_elig, .elig_pos').each((_, el) => {
+                        const q = $(el).text().trim();
+                        if (q && q.length < 50) quals.push(q);
+                    });
+                    if (quals.length > 0) {
+                        data.qualification = quals.join(', ');
+                    } else {
+                        data.qualification = qualBlock.text().trim();
+                    }
+                }
+            }
+
+            // If salary not found, try alternative selectors
+            if (!data.salary) {
+                data.salary = $('.salary-range, [class*="salary"], .ctc').first().text().trim();
+            }
+
+            // If qualification not found in blocks, try other selectors
+            if (!data.qualification) {
+                data.qualification = $('.qualification, [class*="qualification"], [class*="eligib"]').first().text().trim();
+            }
+
+            // Job Type - Look for job type related text
+            let jobTypeText = $('.job-type, [class*="job-type"], [class*="employment"]').first().text().trim();
+            // Clean up job type - extract only the type, not full sentence
+            if (!jobTypeText) {
+                // Try to find in title or description
+                const fullText = $.text();
+                if (fullText.includes('Full Time') || fullText.includes('Fulltime')) jobTypeText = 'Full Time';
+                else if (fullText.includes('Part Time') || fullText.includes('Parttime')) jobTypeText = 'Part Time';
+                else if (fullText.includes('Contract')) jobTypeText = 'Contract';
+                else if (fullText.includes('Internship')) jobTypeText = 'Internship';
+                else if (fullText.includes('Remote')) jobTypeText = 'Remote';
+            }
+            data.job_type = jobTypeText;
+
+            // Skills - Look for skill tags or key skills section
+            const skills = [];
+            $('.skills-tag, .skill-item, .key-skill, [class*="skill"]').each((_, el) => {
+                const skill = $(el).text().trim();
+                if (skill && skill.length < 50 && skill.length > 1) {
+                    skills.push(skill);
+                }
+            });
+            data.skills = skills.length > 0 ? skills.join(', ') : '';
+
+            // Posted Date - Can be in various formats
+            let postedDate = $('.posted-date, .date-posted, time, [class*="posted"]').first().text().trim();
+            if (!postedDate) {
+                // Try to extract from text like "Posted: 2 days ago"
+                const pageText = $.text();
+                const dateMatch = pageText.match(/Posted[:\s]+([^<>\n]+)/i);
+                if (dateMatch) {
+                    postedDate = dateMatch[1].trim();
+                }
+            }
+            data.date_posted = postedDate;
+
+            // Description - Look for actual job description content
+            // Remove all the layout containers first
+            $('.job_listing_alignment, .col-md-12, .col-xs-12, .col-lg-12').find('header, nav, .menu, .navbar').remove();
+
+            let descHtml = '';
+            const descSelectors = [
+                '.job-description',
+                '#job-description',
+                '.job-desc',
+                '.job-content',
+                '.desc',
+                '[class*="description"]'
+            ];
+
+            for (const sel of descSelectors) {
+                const el = $(sel).first();
+                if (el.length) {
+                    const html = el.html();
+                    const text = el.text().trim();
+                    // Must have substantial content and not be the whole page
+                    if (text.length > 50 && text.length < 10000) {
+                        descHtml = html;
+                        break;
+                    }
+                }
+            }
+
+            // If still not found, look for content after job details
+            if (!descHtml) {
+                // Try to find paragraph tags with actual content
+                $('p, div.desc').each((_, el) => {
+                    const text = $(el).text().trim();
+                    if (text.length > 100 && !text.includes('Login') && !text.includes('Register')) {
+                        descHtml = $(el).html();
                         return false;
                     }
                 });
             }
 
+            if (descHtml) {
+                data.description_html = sanitizeHtml(descHtml);
+            } else {
+                data.description_html = '';
+            }
+
             // Industry
-            data.industry = $('.industry, [class*="industry"]').first().text().trim() || '';
+            data.industry = $('.industry, [class*="industry"]').first().text().trim();
 
             // Apply link
-            data.apply_link = $('a.apply-btn, a[class*="apply"], a[href*="apply"]').first().attr('href') || '';
-            if (data.apply_link) data.apply_link = toAbs(data.apply_link) || data.apply_link;
+            let applyLink = $('a.apply-btn, a[class*="apply"], button[class*="apply"]').first().attr('href') ||
+                $('a:contains("Apply Now")').first().attr('href') || '';
+            if (applyLink) {
+                applyLink = toAbs(applyLink) || applyLink;
+            }
+            data.apply_link = applyLink;
 
             // Company logo
-            data.company_logo = $('img.company-logo, img[class*="company-logo"], .company-info img').first().attr('src') || '';
-            if (data.company_logo) data.company_logo = toAbs(data.company_logo) || data.company_logo;
+            let companyLogo = $('img.company-logo, img[class*="company-logo"]').first().attr('src') || '';
+            if (companyLogo) {
+                companyLogo = toAbs(companyLogo) || companyLogo;
+            }
+            data.company_logo = companyLogo;
 
             // Valid through / deadline
-            data.valid_through = $('.deadline, .last-date, [class*="deadline"], [class*="last-date"], [class*="valid"]').first().text().trim() || '';
+            data.valid_through = $('.deadline, .last-date, [class*="deadline"]').first().text().trim();
 
             return data;
         }
