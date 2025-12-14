@@ -241,33 +241,35 @@ async function main() {
             // Pattern 1: /jobs/[slug]-[7-digit-id] (e.g., /jobs/software-developer-opening-2797103)
             // Pattern 2: /[keyword]-jobs/[10-digit-id] (e.g., /admin-jobs/3535115278)
 
-            // Helper to validate job URL
+            // Helper to validate job URL - STRICT pattern matching
             const isJobDetailUrl = (href) => {
                 if (!href) return false;
 
-                // Exclude non-job pages
+                // MUST explicitly exclude location listing pages
+                // Pattern: /jobs-in-{location}/{id} - these are listing pages, NOT job detail pages!
+                if (/\/jobs-in-[a-z-]+\/\d+$/i.test(href)) {
+                    return false;
+                }
+
+                // Exclude other non-job pages
                 if (href.includes('/category/') ||
                     href.includes('/training-') ||
                     href.includes('/institute') ||
                     href.includes('/placement') ||
                     href.includes('/user/') ||
                     href.includes('/contactus') ||
-                    href.includes('/about-us')) {
+                    href.includes('/about-us') ||
+                    href.includes('/premium') ||
+                    href.includes('-job-vacancies') ||
+                    href.includes('/jobs-by-')) {
                     return false;
                 }
 
-                // Pattern 1: /jobs/[slug]-[7+ digit ID at end]
-                if (/\/jobs\/[a-z0-9-]+-\d{6,}$/i.test(href)) {
-                    return true;
-                }
-
-                // Pattern 2: /[keyword]-jobs/[7-10 digit ID] - for keyword searches
-                if (/\/[a-z-]+-jobs\/\d{7,10}$/i.test(href)) {
-                    return true;
-                }
-
-                // Pattern 3: Any URL ending with /[7-10 digit number] that contains "jobs"
-                if (/jobs.*\/\d{7,10}$/i.test(href)) {
+                // ONLY match actual job detail URLs:
+                // Pattern: /jobs/[descriptive-slug-containing-jobs-opening-in]-[6-7 digit ID]
+                // Example: /jobs/software-developer-jobs-opening-in-company-at-location-2797103
+                // The slug typically contains "jobs-opening-in" or similar pattern
+                if (/\/jobs\/[a-z0-9-]+-\d{6,8}$/i.test(href)) {
                     return true;
                 }
 
