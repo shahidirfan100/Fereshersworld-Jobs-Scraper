@@ -173,29 +173,49 @@ async function main() {
         function findJobLinks($, base) {
             const links = new Set();
 
-            // Freshersworld job links typically match pattern: /job-title-jobs-in-location/jobid
-            // or /company-name-job-title/jobid
+            // Freshersworld job detail URLs have specific pattern:
+            // /jobs/[long-descriptive-slug]-[7-digit-id]
+            // Example: /jobs/software-developer-contractor-jobs-opening-in-company-at-location-2797103
+
             $('a[href]').each((_, a) => {
                 const href = $(a).attr('href');
                 if (!href) return;
 
-                // Match job detail URLs - they have numeric IDs at the end
-                // Pattern: /[slug]/[numeric-id] where slug contains job info
-                if (/\/[a-z0-9-]+\/\d{5,}$/i.test(href) ||
-                    /freshersworld\.com\/[a-z0-9-]+\/\d{5,}/i.test(href)) {
+                // Job URLs must:
+                // 1. Contain /jobs/ in the path
+                // 2. End with a 7-digit number (job ID)
+                // 3. NOT be category pages (/jobs/category/)
+                // 4. NOT be location pages (/jobs-in-bangalore/)
+                // 5. NOT be institute/company profile pages
+
+                // Match pattern: /jobs/[any-text]-[7-digit-number] at the end
+                if (/\/jobs\/[a-z0-9-]+-\d{7}$/i.test(href)) {
                     const abs = toAbs(href, base);
-                    if (abs && !abs.includes('/jobs-in-') && !abs.includes('/category/')) {
+                    if (abs &&
+                        !abs.includes('/category/') &&
+                        !abs.includes('/jobs-in-') &&
+                        !abs.includes('/training-') &&
+                        !abs.includes('/institute')) {
                         links.add(abs);
                     }
                 }
             });
 
-            // Also look for specific job card selectors
-            $('.job-container a[href], .job-card a[href], .job-listing a[href], .jobs-list a[href], [class*="job-item"] a[href]').each((_, a) => {
+            // Also check for job cards with data attributes or specific classes
+            $('.job-container a, .job-card a, .job-listing a, .jobs-list a, [class*="job-item"] a, a.view').each((_, a) => {
                 const href = $(a).attr('href');
-                if (href && /\/\d{5,}/.test(href)) {
+                if (!href) return;
+
+                // Same pattern check
+                if (/\/jobs\/[a-z0-9-]+-\d{7}$/i.test(href)) {
                     const abs = toAbs(href, base);
-                    if (abs) links.add(abs);
+                    if (abs &&
+                        !abs.includes('/category/') &&
+                        !abs.includes('/jobs-in-') &&
+                        !abs.includes('/training-') &&
+                        !abs.includes('/institute')) {
+                        links.add(abs);
+                    }
                 }
             });
 
