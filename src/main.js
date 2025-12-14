@@ -78,23 +78,39 @@ async function main() {
 
         // Build Freshersworld search URL
         const buildStartUrl = (kw, loc, cat, exp, qual) => {
-            const u = new URL(`${BASE_URL}/jobs`);
+            // Freshersworld uses keyword-based URL patterns:
+            // - /admin-jobs/ for admin searches
+            // - /software-developer-jobs/ for software developer searches
+            // - /jobs for general listing
 
-            // Freshersworld uses path-based filtering for some parameters
-            // Format: /jobs/category/{cat} or /jobs-in-{location}
-            // For search: /jobs/job-search?q={keyword}&location={loc}
+            if (kw) {
+                // Convert keyword to URL-friendly format: "Software Developer" -> "software-developer-jobs"
+                const kwSlug = String(kw).trim().toLowerCase().replace(/\s+/g, '-');
+                let path = `/${kwSlug}-jobs`;
 
-            if (kw || loc) {
-                u.pathname = '/jobs/job-search';
-                if (kw) u.searchParams.set('q', String(kw).trim());
-                if (loc) u.searchParams.set('location', String(loc).trim());
+                // Add location if provided: /software-developer-jobs-in-bangalore
+                if (loc) {
+                    const locSlug = String(loc).trim().toLowerCase().replace(/\s+/g, '-');
+                    path += `-in-${locSlug}`;
+                }
+
+                return `${BASE_URL}${path}`;
             }
 
-            if (cat) u.searchParams.set('category', String(cat).trim());
-            if (exp) u.searchParams.set('experience', String(exp).trim());
-            if (qual) u.searchParams.set('qualification', String(qual).trim());
+            // If only location, use jobs-in-location pattern
+            if (loc) {
+                const locSlug = String(loc).trim().toLowerCase().replace(/\s+/g, '-');
+                return `${BASE_URL}/jobs-in-${locSlug}`;
+            }
 
-            return u.href;
+            // If category, use category URL
+            if (cat) {
+                const catSlug = String(cat).trim().toLowerCase().replace(/\s+/g, '-');
+                return `${BASE_URL}/jobs/category/${catSlug}-job-vacancies`;
+            }
+
+            // Default to general jobs listing
+            return `${BASE_URL}/jobs`;
         };
 
         // Build paginated URL
@@ -173,49 +189,57 @@ async function main() {
         function findJobLinks($, base) {
             const links = new Set();
 
-            // Freshersworld job detail URLs have specific pattern:
-            // /jobs/[long-descriptive-slug]-[7-digit-id]
-            // Example: /jobs/software-developer-contractor-jobs-opening-in-company-at-location-2797103
+            // Freshersworld job detail URLs have multiple patterns:
+            // Pattern 1: /jobs/[slug]-[7-digit-id] (e.g., /jobs/software-developer-opening-2797103)
+            // Pattern 2: /[keyword]-jobs/[10-digit-id] (e.g., /admin-jobs/3535115278)
+
+            // Helper to validate job URL
+            const isJobDetailUrl = (href) => {
+                if (!href) return false;
+
+                // Exclude non-job pages
+                if (href.includes('/category/') ||
+                    href.includes('/training-') ||
+                    href.includes('/institute') ||
+                    href.includes('/placement') ||
+                    href.includes('/user/') ||
+                    href.includes('/contactus') ||
+                    href.includes('/about-us')) {
+                    return false;
+                }
+
+                // Pattern 1: /jobs/[slug]-[7+ digit ID at end]
+                if (/\/jobs\/[a-z0-9-]+-\d{6,}$/i.test(href)) {
+                    return true;
+                }
+
+                // Pattern 2: /[keyword]-jobs/[7-10 digit ID] - for keyword searches
+                if (/\/[a-z-]+-jobs\/\d{7,10}$/i.test(href)) {
+                    return true;
+                }
+
+                // Pattern 3: Any URL ending with /[7-10 digit number] that contains "jobs"
+                if (/jobs.*\/\d{7,10}$/i.test(href)) {
+                    return true;
+                }
+
+                return false;
+            };
 
             $('a[href]').each((_, a) => {
                 const href = $(a).attr('href');
-                if (!href) return;
-
-                // Job URLs must:
-                // 1. Contain /jobs/ in the path
-                // 2. End with a 7-digit number (job ID)
-                // 3. NOT be category pages (/jobs/category/)
-                // 4. NOT be location pages (/jobs-in-bangalore/)
-                // 5. NOT be institute/company profile pages
-
-                // Match pattern: /jobs/[any-text]-[7-digit-number] at the end
-                if (/\/jobs\/[a-z0-9-]+-\d{7}$/i.test(href)) {
+                if (isJobDetailUrl(href)) {
                     const abs = toAbs(href, base);
-                    if (abs &&
-                        !abs.includes('/category/') &&
-                        !abs.includes('/jobs-in-') &&
-                        !abs.includes('/training-') &&
-                        !abs.includes('/institute')) {
-                        links.add(abs);
-                    }
+                    if (abs) links.add(abs);
                 }
             });
 
-            // Also check for job cards with data attributes or specific classes
-            $('.job-container a, .job-card a, .job-listing a, .jobs-list a, [class*="job-item"] a, a.view').each((_, a) => {
+            // Also check for specific job listing selectors
+            $('.job-container a, .job-card a, .job-listing a, .jobs-list a, [class*="job-item"] a, a.view, .view-more a').each((_, a) => {
                 const href = $(a).attr('href');
-                if (!href) return;
-
-                // Same pattern check
-                if (/\/jobs\/[a-z0-9-]+-\d{7}$/i.test(href)) {
+                if (isJobDetailUrl(href)) {
                     const abs = toAbs(href, base);
-                    if (abs &&
-                        !abs.includes('/category/') &&
-                        !abs.includes('/jobs-in-') &&
-                        !abs.includes('/training-') &&
-                        !abs.includes('/institute')) {
-                        links.add(abs);
-                    }
+                    if (abs) links.add(abs);
                 }
             });
 
@@ -322,29 +346,45 @@ async function main() {
                 data.qualification = $('.qualification, [class*="qualification"], [class*="eligib"]').first().text().trim();
             }
 
-            // Job Type - Look for job type related text
-            let jobTypeText = $('.job-type, [class*="job-type"], [class*="employment"]').first().text().trim();
-            // Clean up job type - extract only the type, not full sentence
+            // Job Type - Look for job type related text, avoid capturing everything
+            let jobTypeText = '';
+            const jobTypes = ['Full Time', 'Part Time', 'Contract', 'Internship', 'Remote', 'Freelance', 'Temporary', 'Walk-in'];
+
+            // First try specific selectors
+            const jobTypeEl = $('.job-type, [class*="job-type"], [class*="employment-type"]').first();
+            if (jobTypeEl.length) {
+                const rawType = jobTypeEl.text().trim();
+                // Check if it contains one of the known job types
+                for (const type of jobTypes) {
+                    if (rawType.toLowerCase().includes(type.toLowerCase())) {
+                        jobTypeText = type;
+                        break;
+                    }
+                }
+            }
+
+            // If not found, search in page text
             if (!jobTypeText) {
-                // Try to find in title or description
-                const fullText = $.text();
-                if (fullText.includes('Full Time') || fullText.includes('Fulltime')) jobTypeText = 'Full Time';
-                else if (fullText.includes('Part Time') || fullText.includes('Parttime')) jobTypeText = 'Part Time';
-                else if (fullText.includes('Contract')) jobTypeText = 'Contract';
-                else if (fullText.includes('Internship')) jobTypeText = 'Internship';
-                else if (fullText.includes('Remote')) jobTypeText = 'Remote';
+                const pageText = $('body').text();
+                for (const type of jobTypes) {
+                    if (pageText.includes(type) || pageText.toLowerCase().includes(type.toLowerCase())) {
+                        jobTypeText = type;
+                        break;
+                    }
+                }
             }
             data.job_type = jobTypeText;
 
-            // Skills - Look for skill tags or key skills section
-            const skills = [];
-            $('.skills-tag, .skill-item, .key-skill, [class*="skill"]').each((_, el) => {
+            // Skills - Look for skill tags or key skills section (avoid long text)
+            const skills = new Set();
+            $('.skills-tag, .skill-item, .key-skill, .skill-badge').each((_, el) => {
                 const skill = $(el).text().trim();
-                if (skill && skill.length < 50 && skill.length > 1) {
-                    skills.push(skill);
+                // Only add if it looks like a skill (short, no sentences)
+                if (skill && skill.length < 40 && skill.length > 1 && !skill.includes('\n') && !/[.!?]/.test(skill)) {
+                    skills.add(skill);
                 }
             });
-            data.skills = skills.length > 0 ? skills.join(', ') : '';
+            data.skills = skills.size > 0 ? [...skills].join(', ') : '';
 
             // Posted Date - Can be in various formats
             let postedDate = $('.posted-date, .date-posted, time, [class*="posted"]').first().text().trim();
@@ -414,10 +454,24 @@ async function main() {
             }
             data.apply_link = applyLink;
 
-            // Company logo
-            let companyLogo = $('img.company-logo, img[class*="company-logo"]').first().attr('src') || '';
-            if (companyLogo) {
-                companyLogo = toAbs(companyLogo) || companyLogo;
+            // Company logo - multiple selectors
+            let companyLogo = '';
+            const logoSelectors = [
+                'img.company-logo',
+                'img[class*="company-logo"]',
+                '.company-logo img',
+                '.logo img',
+                'img[alt*="company"]',
+                'img[alt*="logo"]',
+                '.company-info img',
+                '.job-company img'
+            ];
+            for (const sel of logoSelectors) {
+                const logo = $(sel).first().attr('src');
+                if (logo && logo.length > 5) {
+                    companyLogo = toAbs(logo) || logo;
+                    break;
+                }
             }
             data.company_logo = companyLogo;
 
