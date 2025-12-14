@@ -27,6 +27,17 @@ async function main() {
         const BASE_URL = 'https://www.freshersworld.com';
         const JOBS_PER_PAGE = 20;
 
+        // User-Agent rotation for stealth
+        const USER_AGENTS = [
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
+        ];
+        const getRandomUserAgent = () => USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+
         // Convert relative URLs to absolute
         const toAbs = (href, base = BASE_URL) => {
             if (!href) return null;
@@ -310,9 +321,19 @@ async function main() {
                 'h1'
             ];
             for (const sel of titleSelectors) {
-                const title = $(sel).first().text().trim();
+                // Remove More/Less spans first
+                const titleEl = $(sel).first().clone();
+                titleEl.find('.title_more, .title_less, span[style*="display:none"]').remove();
+
+                let title = titleEl.text().trim();
                 if (title && title.length > 5 && !title.includes('Login') && !title.includes('Employer')) {
-                    data.title = title.replace(/\s+/g, ' ');
+                    // Clean common unwanted text patterns
+                    title = title
+                        .replace(/Less$/i, '')
+                        .replace(/More$/i, '')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                    data.title = title;
                     break;
                 }
             }
@@ -552,9 +573,30 @@ async function main() {
             maxRequestRetries: 3,
             useSessionPool: true,
             persistCookiesPerSession: true,
-            maxConcurrency: 10,
-            requestHandlerTimeoutSecs: 60,
+            maxConcurrency: 15,  // Increased for speed
+            requestHandlerTimeoutSecs: 45,  // Reduced for faster failover
             additionalMimeTypes: ['application/json'],
+
+            // Stealth: Add random headers to each request
+            preNavigationHooks: [
+                async ({ request }) => {
+                    request.headers = {
+                        ...request.headers,
+                        'User-Agent': getRandomUserAgent(),
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                        'Accept-Language': 'en-US,en;q=0.5',
+                        'Accept-Encoding': 'gzip, deflate, br',
+                        'Referer': 'https://www.freshersworld.com/',
+                        'DNT': '1',
+                        'Connection': 'keep-alive',
+                        'Upgrade-Insecure-Requests': '1',
+                        'Sec-Fetch-Dest': 'document',
+                        'Sec-Fetch-Mode': 'navigate',
+                        'Sec-Fetch-Site': 'same-origin',
+                        'Cache-Control': 'max-age=0',
+                    };
+                }
+            ],
 
             async requestHandler({ request, $, enqueueLinks, log: crawlerLog }) {
                 const label = request.userData?.label || 'LIST';
