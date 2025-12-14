@@ -78,39 +78,76 @@ async function main() {
 
         // Build Freshersworld search URL
         const buildStartUrl = (kw, loc, cat, exp, qual) => {
-            // Freshersworld uses keyword-based URL patterns:
-            // - /admin-jobs/ for admin searches
-            // - /software-developer-jobs/ for software developer searches
-            // - /jobs for general listing
+            // Freshersworld uses category-based URLs for job listings:
+            // - /jobs/category/it-software-job-vacancies
+            // - /jobs-in-bangalore (for location)
+            // - /jobs (general listing)
 
+            // Map keywords to category URLs
             if (kw) {
-                // Convert keyword to URL-friendly format: "Software Developer" -> "software-developer-jobs"
-                const kwSlug = String(kw).trim().toLowerCase().replace(/\s+/g, '-');
-                let path = `/${kwSlug}-jobs`;
+                const kwLower = String(kw).trim().toLowerCase();
 
-                // Add location if provided: /software-developer-jobs-in-bangalore
-                if (loc) {
-                    const locSlug = String(loc).trim().toLowerCase().replace(/\s+/g, '-');
-                    path += `-in-${locSlug}`;
+                // Map keywords to category slugs
+                const keywordCategoryMap = {
+                    'software': 'it-software',
+                    'it': 'it-software',
+                    'developer': 'it-software',
+                    'engineer': 'it-software',
+                    'tech': 'it-software',
+                    'java': 'it-software',
+                    'python': 'it-software',
+                    'analyst': 'it-software',
+                    'mba': 'mba',
+                    'admin': 'others',
+                    'bpo': 'bpo',
+                    'core': 'core-technical',
+                    'mechanical': 'core-technical',
+                    'electrical': 'core-technical',
+                    'civil': 'core-technical',
+                    'internship': 'internship',
+                    'intern': 'internship',
+                    'diploma': 'diploma',
+                    'teaching': 'teaching',
+                    'pharma': 'pharma',
+                    'bank': 'bank',
+                    'walkin': 'walkin',
+                    'walk-in': 'walkin',
+                    'part time': 'part-time',
+                    'health': 'health-care',
+                    'retail': 'retail',
+                    'hr': 'mba',
+                    'marketing': 'mba',
+                    'sales': 'mba',
+                    'finance': 'finance',
+                    'startup': 'startup',
+                };
+
+                // Find matching category
+                for (const [key, catSlug] of Object.entries(keywordCategoryMap)) {
+                    if (kwLower.includes(key)) {
+                        return `${BASE_URL}/jobs/category/${catSlug}-job-vacancies`;
+                    }
                 }
 
-                return `${BASE_URL}${path}`;
+                // Default to IT/Software for unknown keywords
+                return `${BASE_URL}/jobs/category/it-software-job-vacancies`;
             }
 
-            // If only location, use jobs-in-location pattern
+            // If location provided, use location-based URL
             if (loc) {
                 const locSlug = String(loc).trim().toLowerCase().replace(/\s+/g, '-');
                 return `${BASE_URL}/jobs-in-${locSlug}`;
             }
 
-            // If category, use category URL
+            // If category provided
             if (cat) {
-                const catSlug = String(cat).trim().toLowerCase().replace(/\s+/g, '-');
+                const catSlug = String(cat).trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
                 return `${BASE_URL}/jobs/category/${catSlug}-job-vacancies`;
             }
 
-            // Default to general jobs listing
-            return `${BASE_URL}/jobs`;
+            // Default: general jobs listing (but this won't have individual job links)
+            // Instead, default to IT/Software which does have job links
+            return `${BASE_URL}/jobs/category/it-software-job-vacancies`;
         };
 
         // Build paginated URL
