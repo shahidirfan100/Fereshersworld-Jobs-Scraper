@@ -1,0 +1,216 @@
+{
+  "actorSpecification": 1,
+  "fields": {
+    "title": {
+      "type": "string",
+      "title": "Job Title",
+      "description": "The job position title"
+    },
+    "company": {
+      "type": "string",
+      "title": "Company Name",
+      "description": "Name of the hiring company"
+    },
+    "location": {
+      "type": "string",
+      "title": "Location",
+      "description": "Job location (city/region)"
+    },
+    "salary": {
+      "type": "string",
+      "title": "Salary",
+      "description": "Salary range or CTC offered"
+    },
+    "experience": {
+      "type": "string",
+      "title": "Experience",
+      "description": "Required experience level"
+    },
+    "qualification": {
+      "type": "string",
+      "title": "Qualification",
+      "description": "Required education/qualification"
+    },
+    "job_type": {
+      "type": "string",
+      "title": "Job Type",
+      "description": "Employment type (Full-time, Part-time, etc.)"
+    },
+    "skills": {
+      "type": "string",
+      "title": "Skills",
+      "description": "Required skills for the position"
+    },
+    "date_posted": {
+      "type": "string",
+      "title": "Date Posted",
+      "description": "When the job was posted"
+    },
+    "valid_through": {
+      "type": "string",
+      "title": "Application Deadline",
+      "description": "Last date to apply"
+    },
+    "description_html": {
+      "type": "string",
+      "title": "Description (HTML)",
+      "description": "Full job description in HTML format"
+    },
+    "description_text": {
+      "type": "string",
+      "title": "Description (Text)",
+      "description": "Full job description in plain text"
+    },
+    "industry": {
+      "type": "string",
+      "title": "Industry",
+      "description": "Industry sector of the job"
+    },
+    "apply_link": {
+      "type": "string",
+      "title": "Apply Link",
+      "description": "Direct application URL"
+    },
+    "url": {
+      "type": "string",
+      "title": "Job URL",
+      "description": "Direct link to the job posting"
+    }
+  },
+  "views": {
+    "overview": {
+      "title": "Jobs Overview",
+      "transformation": {
+        "fields": [
+          "title",
+          "company",
+          "location",
+          "salary",
+          "experience",
+          "job_type",
+          "date_posted",
+          "url"
+        ]
+      },
+      "display": {
+        "component": "table",
+        "properties": {
+          "title": {
+            "label": "Job Title",
+            "format": "text"
+          },
+          "company": {
+            "label": "Company",
+            "format": "text"
+          },
+          "location": {
+            "label": "Location",
+            "format": "text"
+          },
+          "salary": {
+            "label": "Salary/CTC",
+            "format": "text"
+          },
+          "experience": {
+            "label": "Experience",
+            "format": "text"
+          },
+          "job_type": {
+            "label": "Job Type",
+            "format": "text"
+          },
+          "date_posted": {
+            "label": "Posted",
+            "format": "text"
+          },
+          "url": {
+            "label": "Apply Link",
+            "format": "link"
+          }
+        }
+      }
+    },
+    "detailed": {
+      "title": "Detailed View",
+      "transformation": {
+        "fields": [
+          "title",
+          "company",
+          "location",
+          "salary",
+          "experience",
+          "qualification",
+          "job_type",
+          "skills",
+          "industry",
+          "date_posted",
+          "valid_through",
+          "description_text",
+          "apply_link",
+          "url"
+        ]
+      },
+      "display": {
+        "component": "table",
+        "properties": {
+          "title": {
+            "label": "Job Title",
+            "format": "text"
+          },
+          "company": {
+            "label": "Company",
+            "format": "text"
+          },
+          "location": {
+            "label": "Location",
+            "format": "text"
+          },
+          "salary": {
+            "label": "Salary/CTC",
+            "format": "text"
+          },
+          "experience": {
+            "label": "Experience",
+            "format": "text"
+          },
+          "qualification": {
+            "label": "Qualification",
+            "format": "text"
+          },
+          "job_type": {
+            "label": "Job Type",
+            "format": "text"
+          },
+          "skills": {
+            "label": "Skills Required",
+            "format": "text"
+          },
+          "industry": {
+            "label": "Industry",
+            "format": "text"
+          },
+          "date_posted": {
+            "label": "Posted Date",
+            "format": "text"
+          },
+          "valid_through": {
+            "label": "Deadline",
+            "format": "text"
+          },
+          "description_text": {
+            "label": "Description",
+            "format": "text"
+          },
+          "apply_link": {
+            "label": "Apply Now",
+            "format": "link"
+          },
+          "url": {
+            "label": "Job URL",
+            "format": "link"
+          }
+        }
+      }
+    }
+  }
+}

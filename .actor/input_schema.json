@@ -1,0 +1,89 @@
+{
+  "title": "Freshersworld Jobs Scraper",
+  "description": "Scrape fresher and graduate job listings from Freshersworld.com - India's leading job portal. Extract job titles, companies, locations, salaries, experience requirements, and full descriptions.",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "startUrl": {
+      "title": "Start URL",
+      "type": "string",
+      "description": "Specific Freshersworld URL to scrape (overrides keyword/location filters). Example: https://www.freshersworld.com/jobs/category/it-software-job-vacancies",
+      "editor": "textfield",
+      "sectionCaption": "Search Configuration",
+      "sectionDescription": "Define your job search criteria. Use either Start URL or filter parameters below."
+    },
+    "keyword": {
+      "title": "Job Keyword",
+      "type": "string",
+      "description": "Search keywords for job title or skills. Examples: 'Software Developer', 'Data Analyst', 'Marketing Executive'",
+      "editor": "textfield",
+      "prefill": ""
+    },
+    "location": {
+      "title": "Location",
+      "type": "string",
+      "description": "City or region to filter jobs. Examples: 'Bangalore', 'Mumbai', 'Delhi', 'Chennai', 'Hyderabad', 'Pune'",
+      "editor": "textfield",
+      "prefill": ""
+    },
+    "category": {
+      "title": "Job Category",
+      "type": "string",
+      "description": "Filter by job category. Examples: 'IT/Software', 'MBA', 'Core Technical', 'BPO', 'Banking'",
+      "editor": "textfield"
+    },
+    "experience": {
+      "title": "Experience Level",
+      "type": "string",
+      "description": "Filter by experience requirement. Examples: 'Freshers', '0-1 years', '1-3 years', '3-5 years'",
+      "editor": "textfield"
+    },
+    "qualification": {
+      "title": "Qualification",
+      "type": "string",
+      "description": "Filter by education. Examples: 'B.Tech', 'MCA', 'MBA', 'B.Com', 'BCA', 'Diploma'",
+      "editor": "textfield"
+    },
+    "collectDetails": {
+      "title": "Collect Full Details",
+      "type": "boolean",
+      "description": "Visit each job page to extract complete description, skills, and application details. Disable for faster but limited data.",
+      "editor": "checkbox",
+      "default": true,
+      "sectionCaption": "Scraping Options"
+    },
+    "results_wanted": {
+      "title": "Maximum Jobs",
+      "type": "integer",
+      "description": "Maximum number of job listings to collect. Set higher for comprehensive data extraction.",
+      "minimum": 1,
+      "maximum": 10000,
+      "default": 100,
+      "editor": "number"
+    },
+    "max_pages": {
+      "title": "Maximum Pages",
+      "type": "integer",
+      "description": "Safety limit on search result pages to crawl. Each page contains ~20 jobs.",
+      "minimum": 1,
+      "maximum": 500,
+      "editor": "number",
+      "default": 50
+    },
+    "proxyConfiguration": {
+      "title": "Proxy Configuration",
+      "type": "object",
+      "description": "Configure proxy servers for reliable scraping. Residential proxies recommended for best results.",
+      "editor": "proxy",
+      "default": {
+        "useApifyProxy": true,
+        "apifyProxyGroups": [
+          "RESIDENTIAL"
+        ]
+      },
+      "sectionCaption": "Advanced Settings"
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}

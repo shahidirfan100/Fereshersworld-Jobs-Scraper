@@ -1,0 +1,16 @@
+{
+    "actorOutputSchemaVersion": 1,
+    "title": "Freshersworld Jobs Output",
+    "properties": {
+        "overview": {
+            "type": "string",
+            "title": "Jobs Overview",
+            "template": "{{links.apiDefaultDatasetUrl}}/items?view=overview"
+        },
+        "detailed": {
+            "type": "string",
+            "title": "Detailed View",
+            "template": "{{links.apiDefaultDatasetUrl}}/items?view=detailed"
+        }
+    }
+}
